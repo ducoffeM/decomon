@@ -475,15 +475,13 @@ def get_linear_hull_relu(upper, lower, slope, upper_g=0, lower_g=0, **kwargs):
         w_l_, b_l_ = get_linear_lower_slope_relu(upper, lower, upper_grid, lower_grid, **kwargs)
 
     if "finetune" in kwargs:
-        raise NotImplementedError()
         if not ("finetune_grid" in kwargs and len(kwargs["finetune_grid"])):
 
             # weighted linear combination
             alpha_l = kwargs["finetune"]
             alpha_l_0 = alpha_l[0][None]
             alpha_l_1 = alpha_l[1][None]
-
-            w_l_ = alpha_l_0 * w_l_ + (1 - alpha_l_0) * alpha_l_1
+            w_l_ = alpha_l_0 * w_l_ + (K.cast(1,w_l_.dtype) - alpha_l_0) * alpha_l_1
             b_l_ = alpha_l_0 * b_l_
 
     # check inactive relu state: u<=0

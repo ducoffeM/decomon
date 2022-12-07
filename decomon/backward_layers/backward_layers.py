@@ -254,7 +254,6 @@ class BackwardDense(BackwardLayer):
         :param input_shape: list of input shape
         :return:
         """
-
         if self.finetune and self.activation_name != "linear":
             units = self.layer.units
             self.alpha_b_l = self.add_weight(
@@ -600,8 +599,8 @@ class BackwardActivation(BackwardLayer):
         self.finetune_param = []
         if self.finetune:
             self.frozen_alpha = False
-        self.grid_finetune = []
-        self.frozen_grid = False
+        self.grid_finetune = [] # usage ?
+        self.frozen_grid = False # usage ?
 
     def build(self, input_shape):
         """
@@ -616,6 +615,7 @@ class BackwardActivation(BackwardLayer):
         if self.finetune and self.activation_name != "linear":
 
             if len(self.convex_domain) and self.convex_domain["name"] == Grid.name:
+                # not active now
                 if self.activation_name[:4] == "relu":
                     self.alpha_b_l = self.add_weight(
                         shape=(
@@ -633,6 +633,9 @@ class BackwardActivation(BackwardLayer):
                     self.finetune_param.append(self.alpha_b_l)
 
             else:
+                # init alpha to one
+                # 2 parameters: 1 for considering crown's slopes
+                #               1 for balancing between 0 and 1
                 self.alpha_b_l = self.add_weight(
                     shape=(
                         2,
@@ -641,7 +644,7 @@ class BackwardActivation(BackwardLayer):
                     initializer="ones",
                     name="alpha_l_b",
                     regularizer=None,
-                    constraint=ClipAlpha(),
+                    constraint=ClipAlpha(), # check clip alpha
                 )
                 alpha_b_l = np.zeros((2, input_dim))
                 alpha_b_l[0] = 1
@@ -1147,9 +1150,8 @@ def get_backward(
             **kwargs,
         )
     except KeyError:
-        import pdb
-
-        pdb.set_trace()
+        print('unknown class:{}'.format(backward_class_name))
+        raise KeyError()
 
 
 def join(layer):
