@@ -172,7 +172,7 @@ def clone(
     dc_decomp=False,
     convex_domain=None,
     ibp=True,
-    forward=True,
+    forward=False,
     method="crown",
     back_bounds=None,
     finetune=False,

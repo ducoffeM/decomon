@@ -859,9 +859,9 @@ def convert(
             inputs_ += model_monotonic.inputs[-2:]
 
         input_tensors = inputs_
-    import pdb
+    #import pdb
 
-    pdb.set_trace()
+    #pdb.set_trace()
     input_tensors_ = lambda_layer(inputs_)
 
     # create the model
@@ -1194,9 +1194,9 @@ def get_backward_model(model, back_bounds, input_model, slope=V_slope.name, opti
                     if isinstance(layer_, Model):
                         sort_names = [e.name for e in layer_.inputs]
                         unsorted_names = [e._keras_history.layer.name for e in list_inputs]
-                        import pdb
+                        #import pdb
 
-                        pdb.set_trace()
+                        #pdb.set_trace()
                     else:
                         dico_output[layer_.name] = layer_(list_inputs)
                         dico_input[layer_.name] = list_inputs

@@ -4,7 +4,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.keras.backend as K
 from tensorflow.keras.backend import conv2d, conv2d_transpose
-from tensorflow.keras.layers import Activation, Flatten, Layer, Permute
+from tensorflow.keras.layers import Activation, Flatten, Layer, Permute, InputSpec
 from tensorflow.python.ops import array_ops
 
 from decomon.layers.decomon_layers import (
@@ -42,6 +42,7 @@ from .utils import (
     get_input_dim,
 )
 
+from decomon.utils import F_FORWARD, F_HYBRID, F_IBP
 
 class BackwardDense(BackwardLayer):
     """
@@ -79,6 +80,8 @@ class BackwardDense(BackwardLayer):
         else:
             self.mode = mode
             self.convex_domain = convex_domain
+
+            """
             input_dim_ = get_input_dim(input_dim, self.convex_domain)
             self.layer = to_monotonic(
                 layer,
@@ -91,10 +94,44 @@ class BackwardDense(BackwardLayer):
                 shared=True,
                 fast=False,
             )[0]
+            """
 
         self.frozen_weights = False
+        n_dim = self.layer.get_input_shape_at(0)[-1]
 
+        if self.mode == F_HYBRID.name:
+            self.input_spec = [
+                # InputSpec(min_ndim=2, axes={-1: input_dim}),  # y
+                InputSpec(min_ndim=2),  # x_0
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # u_c
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # W_u
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # b_u
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # l_c
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # W_l
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # b_l
+            ]
+        elif self.mode == F_IBP.name:
+            self.input_spec = [
+                # InputSpec(min_ndim=2, axes={-1: input_dim}),  # y
+                # InputSpec(min_ndim=2, axes={-1: input_x}),  # x_0
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # u_c
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # l_c
+            ]
+        elif self.mode == F_FORWARD.name:
+            self.input_spec = [
+                # InputSpec(min_ndim=2, axes={-1: input_dim}),  # y
+                InputSpec(min_ndim=2),  # x_0
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # W_u
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # b_u
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # W_l
+                InputSpec(min_ndim=2, axes={-1: n_dim}),  # b_l
+            ]        
+
+        
+    """
     def call_previous(self, inputs):
+
+        import pdb; pdb.set_trace()
 
         if not len(inputs):
             raise ValueError()
@@ -158,13 +195,17 @@ class BackwardDense(BackwardLayer):
         w_out_u_ = K.sum(w_out_u * weights, 2)  # (None, n_in,  n_back)
         w_out_l_ = K.sum(w_out_l * weights, 2)
         return w_out_u_, b_out_u_, w_out_l_, b_out_l_
+    """
+    def get_config(self):
+        return self.layer.get_config()
 
     def call_no_previous(self, inputs):
 
         if len(inputs):
             x_ = inputs
         else:
-            x_ = self.layer.input
+            raise NotImplementedError()
+            #x_ = self.layer.input
 
         # start with the activation: determine the upper and lower bounds before the weights
         weights = self.layer.kernel
@@ -172,7 +213,8 @@ class BackwardDense(BackwardLayer):
             bias = self.layer.bias
         if self.activation_name != "linear":
             # here update x
-            x = self.layer.call_linear(x_)
+            raise NotImplementedError()
+            x = self.layer.call_linear(x_) # do external function !
             if self.finetune:
                 if self.activation_name[:4] != "relu":
                     w_out_u, b_out_u, w_out_l, b_out_l = self.activation(
@@ -212,9 +254,9 @@ class BackwardDense(BackwardLayer):
                 titi = x
                 finetune = self.finetune
                 act = self.activation_name
-                import pdb
+                #import pdb
 
-                pdb.set_trace()
+                #pdb.set_trace()
 
             if len(w_out_l.shape) == 2:
                 w_out_l = tf.linalg.diag(w_out_l)
@@ -245,6 +287,7 @@ class BackwardDense(BackwardLayer):
 
     def call(self, inputs):
         if self.previous:
+            raise ValueError()
             return self.call_previous(inputs)
         else:
             return self.call_no_previous(inputs)
@@ -283,8 +326,12 @@ class BackwardDense(BackwardLayer):
 
     def freeze_weights(self):
 
+        #TODO: check trainable_weights
+
+        
         if not self.frozen_weights:
 
+            """
             if self.finetune and self.mode == F_HYBRID.name:
                 if self.layer.use_bias:
                     self._trainable_weights = self._trainable_weights[2:]
@@ -292,16 +339,24 @@ class BackwardDense(BackwardLayer):
                     self._trainable_weights = self._trainable_weights[1:]
             else:
                 self._trainable_weights = []
+            """
 
-            if getattr(self.layer, "freeze_weights"):
+            if hasattr(self.layer, "freeze_weights"):
                 self.layer.freeze_weights()
 
-            self.frozen_weights = True
+                self.layer.frozen_weights = True
+            else:
+                self.layer._trainable_weights=[]
+            self.frozen_weights=True
+
 
     def unfreeze_weights(self):
         if self.frozen_weights:
-            if getattr(self.layer, "unfreeze_weights"):
+            if hasattr(self.layer, "unfreeze_weights"):
                 self.layer.unfreeze_weights()
+                self.layer.frozen_weights=False
+            else:
+                self.layer._trainable_weights=self.layer.weights
             self.frozen_weights = False
 
 
@@ -601,6 +656,9 @@ class BackwardActivation(BackwardLayer):
             self.frozen_alpha = False
         self.grid_finetune = [] # usage ?
         self.frozen_grid = False # usage ?
+
+    def get_config(self):
+        return {'activation':self.activation_name}
 
     def build(self, input_shape):
         """

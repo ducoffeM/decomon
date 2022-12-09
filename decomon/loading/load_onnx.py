@@ -232,3 +232,4 @@ def load_onnx_2_keras(onnx_filename):
 
     k_model = onnx_to_keras(onnx_model, get_all_input_names(onnx_model))
     return clone_first_2_last(k_model)
+
