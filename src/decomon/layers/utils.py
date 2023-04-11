@@ -8,6 +8,7 @@ from tensorflow.keras.constraints import Constraint
 from tensorflow.keras.initializers import Initializer
 
 from decomon.layers.core import ForwardMode, StaticVariables
+from decomon.layers.utils_pooling import get_lower_linear_hull_max, get_upper_linear_hull_max
 from decomon.utils import (
     ConvexDomainType,
     Slope,
@@ -483,143 +484,30 @@ def max_(
     else:
         raise ValueError(f"Unknown mode {mode}")
 
-    if mode == ForwardMode.IBP and not dc_decomp:
+    # get upper from mode
+    if mode in [ForwardMode.IBP, ForwardMode.HYBRID]:
         u_c_ = K.max(u_c, axis=axis)
         l_c_ = K.max(l_c, axis=axis)
-
-        return [u_c_, l_c_]
+        if mode == ForwardMode.IBP:
+            output = [u_c_, l_c_]
 
     input_shape = K.int_shape(x[-1])
     max_dim = input_shape[axis]
-
-    # do some transpose so that the last axis is also at the end
-
-    if dc_decomp:
-        h_list = tf.split(h, max_dim, axis)
-        g_list = tf.split(g, max_dim, axis)
-
-    if mode in [ForwardMode.HYBRID, ForwardMode.IBP]:
-
-        u_c_list = tf.split(u_c, max_dim, axis)
-        l_c_list = tf.split(l_c, max_dim, axis)
-        u_c_tmp = u_c_list[0] + 0 * (u_c_list[0])
-        l_c_tmp = l_c_list[0] + 0 * (l_c_list[0])
-
-    if mode in [ForwardMode.HYBRID, ForwardMode.AFFINE]:
-
-        b_u_list = tf.split(b_u, max_dim, axis)
-        b_l_list = tf.split(b_l, max_dim, axis)
-        b_u_tmp = b_u_list[0] + 0 * (b_u_list[0])
-        b_l_tmp = b_l_list[0] + 0 * (b_l_list[0])
-
-        if axis == -1:
-            w_u_list = tf.split(w_u, max_dim, axis)
-            w_l_list = tf.split(w_l, max_dim, axis)
-        else:
-            w_u_list = tf.split(w_u, max_dim, axis + 1)
-            w_l_list = tf.split(w_l, max_dim, axis + 1)
-        w_u_tmp = w_u_list[0] + 0 * (w_u_list[0])
-        w_l_tmp = w_l_list[0] + 0 * (w_l_list[0])
-
-        if finetune:
-            key = [e for e in kwargs.keys()][0]
-            params = kwargs[key][0]
-            params_ = [e[0] for e in tf.split(params[None], max_dim, axis)]
-
-    output_tmp = []
-    if mode == ForwardMode.HYBRID:
-        output_tmp = [
-            x_0,
-            u_c_tmp,
-            w_u_tmp,
-            b_u_tmp,
-            l_c_tmp,
-            w_l_tmp,
-            b_l_tmp,
-        ]
-
-        for i in range(1, max_dim):
-            output_i = [x_0, u_c_list[i], w_u_list[i], b_u_list[i], l_c_list[i], w_l_list[i], b_l_list[i]]
-            if finetune:
-                output_tmp = maximum(
-                    output_tmp, output_i, dc_decomp=False, mode=mode, finetune=finetune, finetune_params=params_[i]
-                )
-            else:
-                output_tmp = maximum(output_tmp, output_i, dc_decomp=False, mode=mode)
-
-    elif mode == ForwardMode.IBP:
-        output_tmp = [
-            u_c_tmp,
-            l_c_tmp,
-        ]
-
-        for i in range(1, max_dim):
-            output_i = [u_c_list[i], l_c_list[i]]
-            output_tmp = maximum(output_tmp, output_i, dc_decomp=False, mode=mode, finetune=finetune)
-
-    elif mode == ForwardMode.AFFINE:
-        output_tmp = [
-            x_0,
-            w_u_tmp,
-            b_u_tmp,
-            w_l_tmp,
-            b_l_tmp,
-        ]
-
-        for i in range(1, max_dim):
-            output_i = [x_0, w_u_list[i], b_u_list[i], w_l_list[i], b_l_list[i]]
-            if finetune:
-                output_tmp = maximum(
-                    output_tmp, output_i, dc_decomp=False, mode=mode, finetune=finetune, finetune_params=params_[i]
-                )
-            else:
-                output_tmp = maximum(output_tmp, output_i, dc_decomp=False, mode=mode)
-    else:
-        raise ValueError(f"Unknown mode {mode}")
-
-    # reduce the dimension
-    if mode == ForwardMode.IBP:
-        u_c_, l_c_ = output_tmp[:nb_tensor]
-    elif mode == ForwardMode.AFFINE:
-        _, w_u_, b_u_, w_l_, b_l_ = output_tmp[:nb_tensor]
-    elif mode == ForwardMode.HYBRID:
-        _, u_c_, w_u_, b_u_, l_c_, w_l_, b_l_ = output_tmp[:nb_tensor]
-    else:
-        raise ValueError(f"Unknown mode {mode}")
-
-    if mode in [ForwardMode.IBP, ForwardMode.HYBRID]:
-        u_c_ = K.squeeze(u_c_, axis)
-        l_c_ = K.squeeze(l_c_, axis)
-    if mode in [ForwardMode.HYBRID, ForwardMode.AFFINE]:
-        b_u_ = K.squeeze(b_u_, axis)
-        b_l_ = K.squeeze(b_l_, axis)
-        if axis == -1:
-            w_u_ = K.squeeze(w_u_, axis)
-            w_l_ = K.squeeze(w_l_, axis)
-        else:
-            w_u_ = K.squeeze(w_u_, axis + 1)
-            w_l_ = K.squeeze(w_l_, axis + 1)
 
     if dc_decomp:
         g_ = K.sum(g, axis=axis)
         h_ = K.max(h + g, axis=axis) - g_
 
-    if mode == ForwardMode.HYBRID:
+    if mode in [ForwardMode.HYBRID, ForwardMode.AFFINE]:
+        w_u_, b_u_ = get_upper_linear_hull_max(x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis)
+        w_l_, b_l_ = get_lower_linear_hull_max(
+            x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis, **kwargs
+        )
 
-        upper_ = get_upper(x_0, w_u_, b_u_, convex_domain)
-        u_c_ = K.minimum(upper_, u_c_)
-
-        lower_ = get_lower(x_0, w_l_, b_l_, convex_domain)
-        l_c_ = K.maximum(lower_, l_c_)
-
-    if mode == ForwardMode.HYBRID:
-        output = [x_0, u_c_, w_u_, b_u_, l_c_, w_l_, b_l_]
-    elif mode == ForwardMode.IBP:
-        output = [u_c_, l_c_]
-    elif mode == ForwardMode.AFFINE:
-        output = [x_0, w_u_, b_u_, w_l_, b_l_]
-    else:
-        raise ValueError(f"Unknown mode {mode}")
+        if mode == ForwardMode.AFFINE:
+            output = [x_0, w_u_, b_u_, w_l_, b_l_]
+        if mode == ForwardMode.HYBRID:
+            output = [x_0, u_c_, w_u_, b_u_, l_c_, w_l_, b_l_]
 
     if dc_decomp:
         output += [h_, g_]
