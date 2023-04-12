@@ -8,7 +8,10 @@ from tensorflow.keras.constraints import Constraint
 from tensorflow.keras.initializers import Initializer
 
 from decomon.layers.core import ForwardMode, StaticVariables
-from decomon.layers.utils_pooling import get_lower_linear_hull_max, get_upper_linear_hull_max
+from decomon.layers.utils_pooling import (
+    get_lower_linear_hull_max,
+    get_upper_linear_hull_max,
+)
 from decomon.utils import (
     ConvexDomainType,
     Slope,
@@ -20,8 +23,8 @@ from decomon.utils import (
     minimum,
     minus,
     relu_,
+    merge_with_previous
 )
-
 
 #####
 # USE SYMBOLIC GRADIENT DESCENT WITH OVERESTIMATION GUARANTEES
@@ -499,11 +502,15 @@ def max_(
         h_ = K.max(h + g, axis=axis) - g_
 
     if mode in [ForwardMode.HYBRID, ForwardMode.AFFINE]:
-        w_u_, b_u_ = get_upper_linear_hull_max(x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis)
-        w_l_, b_l_ = get_lower_linear_hull_max(
+        w_u_max, b_u_max = get_upper_linear_hull_max(x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis)
+        w_l_max, b_l_max = get_lower_linear_hull_max(
             x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis, **kwargs
         )
 
+        # combine with previous bounds
+        w_u_, b_u_, w_l_, b_l_ = merge_with_previous([w_u, b_u, w_l, b_l, \
+                                                    w_u_max, b_u_max, w_l_max, b_l_max])
+        
         if mode == ForwardMode.AFFINE:
             output = [x_0, w_u_, b_u_, w_l_, b_l_]
         if mode == ForwardMode.HYBRID:
