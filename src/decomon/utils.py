@@ -1272,7 +1272,22 @@ def set_mode(
         raise ValueError(f"Unknown final_mode {final_mode}")
 
 def merge_with_previous(inputs: List[tf.Tensor]) -> List[tf.Tensor]:
+    """Merging two inequalities of affine bounds
+       W_10*z + w_10 <= y <= W_11*z + w_11
+       W_00*x + w_00 <= z <= W_01*x + w_01
+       merge should return a single inequality between y given x:
+       W_0*x+ w_0 <= y <= W_1*x + w_1 
+
+    Args:
+        inputs (List[tf.Tensor]): list of affine bounds defining the inequalities ([W_10, w_10, W_11, w_01, W_00, w_00, W_01, w_01])
+
+    Returns:
+        List[tf.Tensor]: list of affine bounds defining the inequalities of y given x: [W_0, w_0, W_1, w_1 ]
+    """
     w_out_u, b_out_u, w_out_l, b_out_l, w_b_u, b_b_u, w_b_l, b_b_l = inputs
+
+    if max([len(e.shape) for e in inputs])>3:
+        raise NotImplementedError()
 
     # w_out_u (None, n_h_in, n_h_out)
     # w_b_u (None, n_h_out, n_out)
@@ -1303,9 +1318,13 @@ def merge_with_previous(inputs: List[tf.Tensor]) -> List[tf.Tensor]:
     w_b_l_pos = K.maximum(w_b_l, z_value)
     w_b_l_neg = K.minimum(w_b_l, z_value)
 
-    w_u = K.batch_dot(w_out_u, w_b_u_pos, (-1, -2)) + K.batch_dot(w_out_l, w_b_u_neg, (-1, -2))
-    w_l = K.batch_dot(w_out_l, w_b_l_pos, (-1, -2)) + K.batch_dot(w_out_u, w_b_l_neg, (-1, -2))
-    b_u = K.batch_dot(b_out_u, w_b_u_pos, (-1, -2)) + K.batch_dot(b_out_l, w_b_u_neg, (-1, -2)) + b_b_u
-    b_l = K.batch_dot(b_out_l, w_b_l_pos, (-1, -2)) + K.batch_dot(b_out_u, w_b_l_neg, (-1, -2)) + b_b_l
+    axis = (-1, -2)
+    try:
+        w_u = K.batch_dot(w_out_u, w_b_u_pos, axis) + K.batch_dot(w_out_l, w_b_u_neg, axis)
+    except ValueError:
+        import pdb; pdb.set_trace()
+    w_l = K.batch_dot(w_out_l, w_b_l_pos, axis) + K.batch_dot(w_out_u, w_b_l_neg, axis)
+    b_u = K.batch_dot(b_out_u, w_b_u_pos, axis) + K.batch_dot(b_out_l, w_b_u_neg, axis) + b_b_u
+    b_l = K.batch_dot(b_out_l, w_b_l_pos, axis) + K.batch_dot(b_out_u, w_b_l_neg, axis) + b_b_l
 
     return [w_u, b_u, w_l, b_l]

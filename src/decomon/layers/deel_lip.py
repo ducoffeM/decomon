@@ -158,27 +158,24 @@ class DecomonGroupSort2(DecomonLayer):
     def call(self, inputs: List[tf.Tensor], **kwargs: Any) -> List[tf.Tensor]:
 
         inputs_ = self.op_reshape_in(inputs)
+        toto = max_(inputs_,mode=self.mode,convex_domain=self.convex_domain,axis=self.axis,finetune=self.finetune,finetune_params=self.params_max)
+
         inputs_max = expand_dims(
-            max_(
-                inputs_,
-                mode=self.mode,
-                convex_domain=self.convex_domain,
-                axis=self.axis,
-                finetune=self.finetune,
-                finetune_params=self.params_max,
-            ),
+            toto,
             mode=self.mode,
             axis=self.axis,
         )
-        inputs_min = expand_dims(
-            min_(
+        titi = min_(
                 inputs_,
                 mode=self.mode,
                 convex_domain=self.convex_domain,
                 axis=self.axis,
                 finetune=self.finetune,
                 finetune_params=self.params_min,
-            ),
+            )
+
+        inputs_min = expand_dims(
+            titi, 
             mode=self.mode,
             axis=self.axis,
         )
