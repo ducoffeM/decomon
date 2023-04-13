@@ -16,6 +16,7 @@ def get_upper_linear_hull_max(
     mode: Union[str, ForwardMode] = ForwardMode.HYBRID,
     convex_domain: Optional[Dict[str, Any]] = None,
     axis: int = -1,
+    keepdims: bool = False,
     **kwargs: Any,
 ) -> List[tf.Tensor]:
     """Compute the linear hull that overapproximates max along the axis dimension
@@ -25,7 +26,7 @@ def get_upper_linear_hull_max(
         mode: type of Forward propagation (ibp, affine, or hybrid). Default to hybrid.
         convex_domain (optional): type of convex domain that encompass the set of perturbations. Defaults to None.
         axis (optional): Defaults to -1. See Keras offical documentation backend.max(., axis)
-
+        keepdims (optional): Defaults to False. A boolean, whether to keep the spatial dimensions or not
     Raises:
         NotImplementedError: axis <0 and axis!=-1
 
@@ -117,14 +118,23 @@ def get_upper_linear_hull_max(
         shape_after = 1
     else:
         shape_after = np.prod(inputs[-1].shape[axis + 1 :]).astype("int")
+    
     # (-1, shape_prev, axis, shape_after, n_dim+1)
-    shape_ = np.prod(w_hull.shape[1:-2])
+    shape_ = np.prod(w_hull.shape[1:-2]).astype('int32')
     w_hull_flat = K.reshape(w_hull, (-1, shape_, n_dim + 1))
     w_u = K.reshape(w_hull_flat[:, :, :-1], (-1, shape_prev, shape_after, n_dim))  # (-1, shape_, n_dim)
     w_u = K.reshape(K.permute_dimensions(w_u, (0, 1, 3, 2)), [-1] + list(inputs[-1].shape[1:]))
     # reshape w_u
     shape_max = K.max(inputs[-1], axis).shape[1:]
     b_u = K.reshape(w_hull_flat[:, :, -1], [-1] + list(shape_max))  # (-1, shape_)
+    if keepdims:
+        if axis>=0:
+            axis_=axis+1
+        else:
+            axis_=axis
+        w_u = K.expand_dims(w_u, axis_)
+        b_u = K.expand_dims(b_u, axis)
+    
 
     return [w_u, b_u]
 
@@ -134,6 +144,7 @@ def get_lower_linear_hull_max(
     mode: Union[str, ForwardMode] = ForwardMode.HYBRID,
     convex_domain: Optional[Dict[str, Any]] = None,
     axis: int = -1,
+    keepdims: bool = False,
     finetune_lower: Optional[tf.Tensor] = None,
     **kwargs: Any,
 ) -> List[tf.Tensor]:
@@ -144,6 +155,7 @@ def get_lower_linear_hull_max(
         mode: type of Forward propagation (ibp, affine, or hybrid). Default to hybrid.
         convex_domain (optional): type of convex domain that encompass the set of perturbations. Defaults to None.
         axis (optional): Defaults to -1. See Keras offical documentation backend.max(., axis)
+        keepdims (optional): Defaults to False. A boolean, whether to keep the spatial dimensions or not
         finetune_lower: If not None, should be a constant tensor used to fine tune the lower relaxation.
 
     Raises:
@@ -197,5 +209,13 @@ def get_lower_linear_hull_max(
         y = alpha * u_c + (o_value - alpha) * l_c
         w_l_alpha = K.cast(tf.one_hot(K.argmax(y, axis), depth=V.shape[axis], axis=axis), dtype)
         w_l = (o_value - alpha) * w_l + alpha * w_l_alpha
+
+    if keepdims:
+        if axis>=0:
+            axis_=axis+1
+        else:
+            axis_=axis
+        w_l = K.expand_dims(w_l, axis_)
+        b_l = K.expand_dims(b_l, axis)
 
     return [w_l, b_l]
