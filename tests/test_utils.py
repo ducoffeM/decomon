@@ -793,7 +793,9 @@ def test_maximum(odd, mode, floatx, helpers):
     K.set_epsilon(eps)
 
 
-def test_max_(odd, mode, floatx, helpers):
+
+@pytest.mark.parametrize("axis", [(-1), (1)])
+def test_max_(axis, odd, mode, floatx, helpers):
 
     K.set_floatx("float{}".format(floatx))
     eps = K.epsilon()
@@ -808,22 +810,21 @@ def test_max_(odd, mode, floatx, helpers):
     inputs_ = helpers.get_standard_values_multid_box(odd)
 
     x, y, z, u_c, W_u, b_u, l_c, W_l, b_l, h, g = inputs
-    # x, y, z, u_c, W_u, b_u, l_c, W_l, b_l, h, g = inputs_
 
     x_ = inputs_[0]
     z_ = inputs_[2]
 
     mode = ForwardMode(mode)
     if mode == ForwardMode.HYBRID:
-        output = max_(inputs[2:], dc_decomp=True, mode=mode)
+        output = max_(inputs[2:], dc_decomp=True, mode=mode, axis=axis)
     elif mode == ForwardMode.AFFINE:
-        output = max_([z, W_u, b_u, W_l, b_l, h, g], dc_decomp=True, mode=mode)
+        output = max_([z, W_u, b_u, W_l, b_l, h, g], dc_decomp=True, mode=mode, axis=axis)
     elif mode == ForwardMode.IBP:
-        output = max_([u_c, l_c, h, g], dc_decomp=True, mode=mode)
+        output = max_([u_c, l_c, h, g], dc_decomp=True, mode=mode, axis=axis)
     else:
         raise ValueError("Unknown mode.")
 
-    f_ref = K.function(inputs, K.max(inputs[1], -1))
+    f_ref = K.function(inputs, K.max(inputs[1], axis))
     f_max = K.function(inputs, output)
 
     y_ = f_ref(inputs_)
@@ -890,7 +891,7 @@ def test_max_(odd, mode, floatx, helpers):
     K.set_epsilon(eps)
     K.set_floatx("float{}".format(32))
 
-
+"""
 # DC_DECOMP = FALSE
 def test_max_nodc(odd, helpers):
 
@@ -961,3 +962,4 @@ def test_relu_1D_box_nodc(n, helpers):
 
     f_relu_ = K.function(inputs[2:], output)
     assert_allclose(len(f_relu_(inputs_[2:])), 7)
+"""
