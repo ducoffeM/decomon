@@ -891,7 +891,7 @@ def test_max_(axis, odd, mode, floatx, helpers):
     K.set_epsilon(eps)
     K.set_floatx("float{}".format(32))
 
-"""
+
 # DC_DECOMP = FALSE
 def test_max_nodc(odd, helpers):
 
@@ -962,4 +962,3 @@ def test_relu_1D_box_nodc(n, helpers):
 
     f_relu_ = K.function(inputs[2:], output)
     assert_allclose(len(f_relu_(inputs_[2:])), 7)
-"""
