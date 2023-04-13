@@ -494,23 +494,29 @@ def max_(
         if mode == ForwardMode.IBP:
             output = [u_c_, l_c_]
 
-    input_shape = K.int_shape(x[-1])
-    max_dim = input_shape[axis]
-
     if dc_decomp:
         g_ = K.sum(g, axis=axis)
         h_ = K.max(h + g, axis=axis) - g_
 
     if mode in [ForwardMode.HYBRID, ForwardMode.AFFINE]:
-        w_u_max, b_u_max = get_upper_linear_hull_max(x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis)
+        w_u_max, b_u_max = get_upper_linear_hull_max(x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis, keepdims=True)
         w_l_max, b_l_max = get_lower_linear_hull_max(
-            x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis, **kwargs
+            x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis, keepdims=True, **kwargs
         )
 
         # combine with previous bounds
         w_u_, b_u_, w_l_, b_l_ = merge_with_previous([w_u, b_u, w_l, b_l, \
                                                     w_u_max, b_u_max, w_l_max, b_l_max])
-        
+        if axis>0:
+            axis_=axis+1
+        else:
+            axis_=axis
+        w_u_ = K.sum(w_u_, axis_)
+        w_l_ = K.sum(w_l_, axis_)
+        b_u_ = K.sum(b_u_, axis)
+        b_l_ = K.sum(b_l_, axis)
+
+
         if mode == ForwardMode.AFFINE:
             output = [x_0, w_u_, b_u_, w_l_, b_l_]
         if mode == ForwardMode.HYBRID:
