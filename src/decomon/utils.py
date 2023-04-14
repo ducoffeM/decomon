@@ -1271,60 +1271,41 @@ def set_mode(
     else:
         raise ValueError(f"Unknown final_mode {final_mode}")
 
-def merge_with_previous(inputs: List[tf.Tensor]) -> List[tf.Tensor]:
+
+def forward_merge_with_previous(affine_layer: List[tf.Tensor], affine_input: List[tf.Tensor]) -> List[tf.Tensor]:
     """Merging two inequalities of affine bounds
-       W_10*z + w_10 <= y <= W_11*z + w_11
-       W_00*x + w_00 <= z <= W_01*x + w_01
+       affine_layer = [W_11, w_11, W_10, w_10] s.t W_10*z + w_10 <= y <= W_11*z + w_11
+       affine_input = [W_01, w_01, W_00, w_00] s.t W_00*x + w_00 <= z <= W_01*x + w_01
        merge should return a single inequality between y given x:
-       W_0*x+ w_0 <= y <= W_1*x + w_1 
+       W_0*x+ w_0 <= y <= W_1*x + w_1
 
     Args:
-        inputs (List[tf.Tensor]): list of affine bounds defining the inequalities ([W_10, w_10, W_11, w_01, W_00, w_00, W_01, w_01])
+        affine_layer : list of affine bounds defining the inequalities between the input and output of a layer
+        affine_input : list of affine bounds defining the inequalities between the input of the model and input of a layer
 
     Returns:
-        List[tf.Tensor]: list of affine bounds defining the inequalities of y given x: [W_0, w_0, W_1, w_1 ]
+        list of affine bounds defining the inequalities between the input of the model and output of a layer
     """
-    w_out_u, b_out_u, w_out_l, b_out_l, w_b_u, b_b_u, w_b_l, b_b_l = inputs
+    w_layer_u, b_layer_u, w_layer_l, b_layer_l = affine_layer
+    w_f_u, b_f_u, w_f_l, b_f_l = affine_input
 
-    if max([len(e.shape) for e in inputs])>3:
-        raise NotImplementedError()
+    z_value = K.cast(0.0, dtype=w_f_u.dtype)
 
-    # w_out_u (None, n_h_in, n_h_out)
-    # w_b_u (None, n_h_out, n_out)
+    # split positive and negative elements
+    w_pos_u = K.maximum(w_layer_u, z_value)
+    w_neg_u = K.minimum(w_layer_u, z_value)
+    w_pos_l = K.maximum(w_layer_l, z_value)
+    w_neg_l = K.minimum(w_layer_l, z_value)
 
-    # w_out_u_ (None, n_h_in, n_h_out, 1)
-    # w_b_u_ (None, 1, n_h_out, n_out)
-    # w_out_u_*w_b_u_ (None, n_h_in, n_h_out, n_out)
+    axis_ = axis
+    if axis > 0:
+        axis_ = axis + 1
 
-    # result (None, n_h_in, n_out)
+    # expand_dimensions
+    w_u = K.sum(K.expand_dims(w_pos_u, 1) * w_f_u, axis_) + K.sum(K.expand_dims(w_neg_u, 1) * w_f_l, axis_)
+    b_u = K.sum(w_pos_u * b_f_u, axis) + K.sum(w_neg_u * b_f_u, axis) + b_layer_u
 
-    if len(w_out_u.shape) == 2:
-        w_out_u = tf.linalg.diag(w_out_u)
+    w_f = K.sum(K.expand_dims(w_pos_l, 1) * w_f_l, axis_) + K.sum(K.expand_dims(w_neg_l, 1) * w_f_u, axis_)
+    b_f = K.sum(w_pos_l * b_f_l, axis) + K.sum(w_neg_l * b_f_l, axis) + b_layer_l
 
-    if len(w_out_l.shape) == 2:
-        w_out_l = tf.linalg.diag(w_out_l)
-
-    if len(w_b_u.shape) == 2:
-        w_b_u = tf.linalg.diag(w_b_u)
-
-    if len(w_b_l.shape) == 2:
-        w_b_l = tf.linalg.diag(w_b_l)
-
-    # import pdb; pdb.set_trace()
-
-    z_value = K.cast(0.0, dtype=w_out_u.dtype)
-    w_b_u_pos = K.maximum(w_b_u, z_value)
-    w_b_u_neg = K.minimum(w_b_u, z_value)
-    w_b_l_pos = K.maximum(w_b_l, z_value)
-    w_b_l_neg = K.minimum(w_b_l, z_value)
-
-    axis = (-1, -2)
-    try:
-        w_u = K.batch_dot(w_out_u, w_b_u_pos, axis) + K.batch_dot(w_out_l, w_b_u_neg, axis)
-    except ValueError:
-        import pdb; pdb.set_trace()
-    w_l = K.batch_dot(w_out_l, w_b_l_pos, axis) + K.batch_dot(w_out_u, w_b_l_neg, axis)
-    b_u = K.batch_dot(b_out_u, w_b_u_pos, axis) + K.batch_dot(b_out_l, w_b_u_neg, axis) + b_b_u
-    b_l = K.batch_dot(b_out_l, w_b_l_pos, axis) + K.batch_dot(b_out_u, w_b_l_neg, axis) + b_b_l
-
-    return [w_u, b_u, w_l, b_l]
+    return [w_u, b_u, w_f, b_f]
