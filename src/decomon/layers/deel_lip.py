@@ -158,42 +158,40 @@ class DecomonGroupSort2(DecomonLayer):
     def call(self, inputs: List[tf.Tensor], **kwargs: Any) -> List[tf.Tensor]:
 
         inputs_ = self.op_reshape_in(inputs)
-        toto = max_(inputs_,mode=self.mode,convex_domain=self.convex_domain,axis=self.axis,finetune=self.finetune,finetune_params=self.params_max)
+        inputs_max = max_(
+            inputs_,
+            mode=self.mode,
+            convex_domain=self.convex_domain,
+            axis=self.axis,
+            finetune=self.finetune,
+            finetune_params=self.params_max,
+        )
 
-        inputs_max = expand_dims(
-            toto,
+        outputs_max = expand_dims(
+            inputs_max,
             mode=self.mode,
             axis=self.axis,
         )
-        titi = min_(
-                inputs_,
-                mode=self.mode,
-                convex_domain=self.convex_domain,
-                axis=self.axis,
-                finetune=self.finetune,
-                finetune_params=self.params_min,
-            )
+        inputs_min = min_(
+            inputs_,
+            mode=self.mode,
+            convex_domain=self.convex_domain,
+            axis=self.axis,
+            finetune=self.finetune,
+            finetune_params=self.params_min,
+        )
 
-        inputs_min = expand_dims(
-            titi, 
+        outputs_min = expand_dims(
+            inputs_min,
             mode=self.mode,
             axis=self.axis,
         )
-        output = self.op_concat(inputs_min + inputs_max)
+        output = self.op_concat(outputs_min + outputs_max)
         output_ = self.op_reshape_out(output)
         return output_
 
     def build(self, input_shape: List[tf.TensorShape]) -> None:
         input_shape = input_shape[-1]
-
-        if self.data_format == "channels_last":
-            if input_shape[-1] % 2 != 0:
-                raise ValueError()
-            target_shape = list(input_shape[1:-2]) + [int(input_shape[-1] / 2), 2]
-        else:
-            if input_shape[1] % 2 != 0:
-                raise ValueError()
-            target_shape = [2, int(input_shape[1] / 2)] + list(input_shape[2:])
 
         self.params_max = []
         self.params_min = []
@@ -208,8 +206,29 @@ class DecomonGroupSort2(DecomonLayer):
             self.params_max = [self.beta_max_]
             self.params_min = [self.beta_min_]
 
-        self.op_reshape_in = DecomonReshape(tuple(target_shape), mode=self.mode)
-        self.op_reshape_out = DecomonReshape(tuple(input_shape[1:]), mode=self.mode)
+        self.op_reshape_in, self.op_reshape_out = get_groupsort2_reshape(input_shape, self.mode, self.data_format)
 
     def reset_layer(self, layer: Layer) -> None:
         pass
+
+
+def get_groupsort2_targetshape(input_shape, data_format):
+    if data_format == "channels_last":
+        if input_shape[-1] % 2 != 0:
+            raise ValueError()
+        target_shape = list(input_shape[1:-2]) + [int(input_shape[-1] / 2), 2]
+    else:
+        if input_shape[1] % 2 != 0:
+            raise ValueError()
+        target_shape = [2, int(input_shape[1] / 2)] + list(input_shape[2:])
+
+    return target_shape
+
+
+def get_groupsort2_reshape(input_shape, mode, data_format):
+
+    target_shape = get_groupsort2_targetshape(input_shape, data_format)
+    op_reshape_in = DecomonReshape(tuple(target_shape), mode=mode)
+    op_reshape_out = DecomonReshape(tuple(input_shape[1:]), mode=mode)
+
+    return op_reshape_in, op_reshape_out
