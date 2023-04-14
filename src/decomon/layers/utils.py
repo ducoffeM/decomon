@@ -500,11 +500,9 @@ def max_(
         h_ = K.max(h + g, axis=axis) - g_
 
     if mode in [ForwardMode.HYBRID, ForwardMode.AFFINE]:
-        w_u_max, b_u_max = get_upper_linear_hull_max(
-            x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis, keepdims=False
-        )
+        w_u_max, b_u_max = get_upper_linear_hull_max(x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis)
         w_l_max, b_l_max = get_lower_linear_hull_max(
-            x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis, keepdims=False, **kwargs
+            x[:nb_tensor], mode=mode, convex_domain=convex_domain, axis=axis, **kwargs
         )
 
         # combine with previous bounds
