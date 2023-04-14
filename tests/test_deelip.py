@@ -5,10 +5,16 @@ from deel.lip.activations import GroupSort, GroupSort2
 from numpy.testing import assert_allclose, assert_almost_equal
 
 from decomon.layers.core import ForwardMode
+from decomon.layers.decomon_layers import to_decomon
 from decomon.layers.deel_lip import DecomonGroupSort2
+from decomon.utils import get_forward_from_mode, get_ibp_from_mode
 
 
-def test_groupsort2(axis, mode, floatx, helpers):
+@pytest.mark.parametrize(
+    "cloning",
+    [True, False],
+)
+def test_groupsort2(cloning, axis, mode, floatx, helpers):
 
     odd = 0  # only working for multiple of 2
     K.set_floatx("float{}".format(floatx))
@@ -23,13 +29,17 @@ def test_groupsort2(axis, mode, floatx, helpers):
     inputs = helpers.get_tensor_decomposition_multid_box(odd, dc_decomp=False)
     inputs_ = helpers.get_standard_values_multid_box(odd, dc_decomp=False)
 
-    x, y, z, u_c, _, b_u, l_c, _, b_l = inputs
+    x, y, z, u_c, W_u, b_u, l_c, W_l, b_l = inputs
 
     x_ = inputs_[0]
     z_ = inputs_[2]
 
-    layer = DecomonGroupSort2(mode=mode)
     layer_ref = GroupSort2()
+    if not cloning:
+        layer = DecomonGroupSort2(mode=mode)
+    else:
+        layer_ref(y)
+        layer = to_decomon(layer_ref, ibp=get_ibp_from_mode(mode), affine=get_forward_from_mode(mode), input_dim=-1)[0]
 
     mode = ForwardMode(mode)
     if mode == ForwardMode.HYBRID:

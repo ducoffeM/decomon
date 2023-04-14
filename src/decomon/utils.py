@@ -1311,3 +1311,39 @@ def forward_merge_with_previous(
     b_f = K.sum(w_pos_l * b_f_l, axis) + K.sum(w_neg_l * b_f_l, axis) + b_layer_l
 
     return [w_u, b_u, w_f, b_f]
+
+
+def get_ibp_from_mode(
+    mode: Union[str, ForwardMode] = ForwardMode.HYBRID,
+) -> bool:
+    """check if the bounds carried with mode contains constant bounds
+
+    Args:
+        mode : type of affine bounds propagated. Defaults to ForwardMode.HYBRID.
+
+    Returns:
+        bool: whether the bounds carried with mode contains constant bounds
+    """
+    mode = ForwardMode(mode)
+    if mode in [ForwardMode.HYBRID, ForwardMode.IBP]:
+        return True
+    else:
+        return False
+
+
+def get_forward_from_mode(
+    mode: Union[str, ForwardMode] = ForwardMode.HYBRID,
+) -> bool:
+    """check if the bounds carried with mode contains affine bounds
+
+    Args:
+        mode : type of affine bounds propagated. Defaults to ForwardMode.HYBRID.
+
+    Returns:
+        bool: whether the bounds carried with mode contains affine bounds
+    """
+    mode = ForwardMode(mode)
+    if mode in [ForwardMode.HYBRID, ForwardMode.AFFINE]:
+        return True
+    else:
+        return False
