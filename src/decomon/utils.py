@@ -1272,7 +1272,9 @@ def set_mode(
         raise ValueError(f"Unknown final_mode {final_mode}")
 
 
-def forward_merge_with_previous(affine_layer: List[tf.Tensor], affine_input: List[tf.Tensor]) -> List[tf.Tensor]:
+def forward_merge_with_previous(
+    affine_layer: List[tf.Tensor], affine_input: List[tf.Tensor], axis: int = -1
+) -> List[tf.Tensor]:
     """Merging two inequalities of affine bounds
        affine_layer = [W_11, w_11, W_10, w_10] s.t W_10*z + w_10 <= y <= W_11*z + w_11
        affine_input = [W_01, w_01, W_00, w_00] s.t W_00*x + w_00 <= z <= W_01*x + w_01
@@ -1282,7 +1284,7 @@ def forward_merge_with_previous(affine_layer: List[tf.Tensor], affine_input: Lis
     Args:
         affine_layer : list of affine bounds defining the inequalities between the input and output of a layer
         affine_input : list of affine bounds defining the inequalities between the input of the model and input of a layer
-
+        axis: dimension on which we apply the dot product
     Returns:
         list of affine bounds defining the inequalities between the input of the model and output of a layer
     """
