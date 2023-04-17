@@ -5,7 +5,7 @@ import tensorflow as tf
 from tensorflow.python.keras import backend as K
 
 from decomon.layers.core import ForwardMode, StaticVariables
-from decomon.utils import get_lower, get_upper
+from decomon.utils import get_lower, get_upper, minus
 
 # step 1: compute (x_i, y_i) such that x_i[j]=l_j if j==i else u_j
 # dataset of size n+1 on which we can compute an affine bound
@@ -137,7 +137,7 @@ def get_lower_linear_hull_max(
     finetune_lower: Optional[tf.Tensor] = None,
     **kwargs: Any,
 ) -> List[tf.Tensor]:
-    """Compute the linear hull that overapproximates max along the axis dimension
+    """Compute the linear hull that under-approximates max along the axis dimension
 
     Args:
         inputs: list of input tensors
@@ -199,3 +199,63 @@ def get_lower_linear_hull_max(
         w_l = (o_value - alpha) * w_l + alpha * w_l_alpha
 
     return [w_l, b_l]
+
+
+# min as -max(-x)
+
+
+def get_upper_linear_hull_min(
+    inputs: List[tf.Tensor],
+    mode: Union[str, ForwardMode] = ForwardMode.HYBRID,
+    convex_domain: Optional[Dict[str, Any]] = None,
+    axis: int = -1,
+    finetune_upper: Optional[tf.Tensor] = None,
+    **kwargs: Any,
+) -> List[tf.Tensor]:
+    """Compute the linear hull that over-approximates min along the axis dimension
+
+    Args:
+        inputs: list of input tensors
+        mode: type of Forward propagation (ibp, affine, or hybrid). Default to hybrid.
+        convex_domain (optional): type of convex domain that encompass the set of perturbations. Defaults to None.
+        axis (optional): Defaults to -1. See Keras offical documentation backend.min(., axis)
+        finetune_upper: If not None, should be a constant tensor used to fine tune the upper relaxation.
+
+    Raises:
+        NotImplementedError: axis <0 and axis!=-1
+
+    Returns:
+        list of output tensors. The upper linear relaxation of min(., axis) in the mode format
+    """
+
+    inputs_ = minus(inputs, mode=mode, convex_domain=convex_domain)
+    w_u_, b_u_ = get_lower_linear_hull_max(
+        inputs=inputs_, mode=mode, convex_domain=convex_domain, axis=axis, finetune_lower=finetune_upper, **kwargs
+    )
+    return [-w_u_, -b_u_]
+
+
+def get_lower_linear_hull_min(
+    inputs: List[tf.Tensor],
+    mode: Union[str, ForwardMode] = ForwardMode.HYBRID,
+    convex_domain: Optional[Dict[str, Any]] = None,
+    axis: int = -1,
+    **kwargs: Any,
+) -> List[tf.Tensor]:
+    """Compute the linear hull that under-approximates min along the axis dimension
+
+    Args:
+        inputs: list of input tensors
+        mode: type of Forward propagation (ibp, affine, or hybrid). Default to hybrid.
+        convex_domain (optional): type of convex domain that encompass the set of perturbations. Defaults to None.
+        axis (optional): Defaults to -1. See Keras offical documentation backend.min(., axis)
+    Raises:
+        NotImplementedError: axis <0 and axis!=-1
+
+    Returns:
+        list of output tensors. The lower linear relaxation of min(., axis) in the mode format
+    """
+
+    inputs_ = minus(inputs, mode=mode, convex_domain=convex_domain)
+    w_l_, b_l_ = get_upper_linear_hull_max(inputs=inputs_, mode=mode, convex_domain=convex_domain, axis=axis, **kwargs)
+    return [-w_l_, -b_l_]
