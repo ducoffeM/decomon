@@ -858,4 +858,3 @@ def get_affine(mode: Union[str, ForwardMode] = ForwardMode.HYBRID) -> bool:
     if mode in [ForwardMode.HYBRID, ForwardMode.AFFINE]:
         return True
     return False
-
