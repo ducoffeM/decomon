@@ -46,7 +46,7 @@ def test_Backward_Groupsort2_multiD_box(floatx, mode, helpers):
         raise ValueError("Unknown mode.")
 
     # get backward layer
-    layer_backward = BackwardGroupSort2(layer=layer, mode=mode)
+    # layer_backward = BackwardGroupSort2(layer=layer, mode=mode)
     # if replacing by to_backward, we get the error:
     # TypeError: Can't instantiate abstract class BackwardGroupSort2 with abstract method call
     layer_backward = to_backward(layer)
