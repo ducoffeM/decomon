@@ -7,6 +7,7 @@ from tensorflow.keras.layers import Flatten, Layer
 
 from decomon.backward_layers.core import BackwardLayer
 from decomon.layers.core import ForwardMode, Option
+from decomon.layers.decomon_reshape import DecomonReshape
 from decomon.layers.deel_lip import DecomonGroupSort2, get_groupsort2_reshape
 from decomon.layers.utils_pooling import (
     get_lower_linear_hull_max,

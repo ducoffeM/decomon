@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import tensorflow as tf
 from tensorflow.keras.layers import Layer
@@ -157,7 +157,7 @@ class DecomonGroupSort2(DecomonLayer):
 
     def call(self, inputs: List[tf.Tensor], **kwargs: Any) -> List[tf.Tensor]:
 
-        inputs_ = self.op_reshape_in(inputs)
+        inputs_: List[tf.Tensor] = self.op_reshape_in(inputs)
         inputs_max = max_(
             inputs_,
             mode=self.mode,
@@ -193,9 +193,10 @@ class DecomonGroupSort2(DecomonLayer):
     def build(self, input_shape: List[tf.TensorShape]) -> None:
         input_shape = input_shape[-1]
 
-        self.params_max = []
-        self.params_min = []
+        self.params_max: List[tf.Variable] = []
+        self.params_min: List[tf.Variable] = []
 
+        """
         if self.finetune and self.mode in [ForwardMode.AFFINE, ForwardMode.HYBRID]:
             self.beta_max_ = self.add_weight(
                 shape=target_shape, initializer="ones", name="beta_max", regularizer=None, constraint=ClipAlpha()
@@ -205,6 +206,7 @@ class DecomonGroupSort2(DecomonLayer):
             )
             self.params_max = [self.beta_max_]
             self.params_min = [self.beta_min_]
+        """
 
         self.op_reshape_in, self.op_reshape_out = get_groupsort2_reshape(input_shape, self.mode, self.data_format)
 
@@ -212,7 +214,7 @@ class DecomonGroupSort2(DecomonLayer):
         pass
 
 
-def get_groupsort2_targetshape(input_shape, data_format):
+def get_groupsort2_targetshape(input_shape: List[tf.TensorShape], data_format: str) -> List[Union[int, tf.TensorShape]]:
     if data_format == "channels_last":
         if input_shape[-1] % 2 != 0:
             raise ValueError()
@@ -225,7 +227,9 @@ def get_groupsort2_targetshape(input_shape, data_format):
     return target_shape
 
 
-def get_groupsort2_reshape(input_shape, mode, data_format):
+def get_groupsort2_reshape(
+    input_shape: List[tf.TensorShape], mode: Union[str, ForwardMode], data_format: str
+) -> Tuple[DecomonReshape, DecomonReshape]:
 
     target_shape = get_groupsort2_targetshape(input_shape, data_format)
     op_reshape_in = DecomonReshape(tuple(target_shape), mode=mode)
