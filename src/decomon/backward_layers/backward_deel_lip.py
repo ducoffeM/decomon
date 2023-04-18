@@ -3,19 +3,11 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import numpy as np
 import tensorflow as tf
 import tensorflow.keras.backend as K
-from tensorflow.keras.backend import conv2d_transpose
 from tensorflow.keras.layers import Flatten, Layer
-from tensorflow.python.ops import array_ops
 
-from decomon.backward_layers.activations import get
 from decomon.backward_layers.core import BackwardLayer
-from decomon.backward_layers.utils import get_affine, get_ibp, get_identity_lirpa
-from decomon.layers.core import DecomonLayer, ForwardMode, Option
-from decomon.layers.decomon_layers import (  # add some layers to module namespace `globals()`
-    DecomonGroupSort2,
-    get_groupsort2_reshape,
-)
-from decomon.layers.utils import ClipAlpha, NonNeg, NonPos
+from decomon.layers.core import ForwardMode, Option
+from decomon.layers.deel_lip import DecomonGroupSort2, get_groupsort2_reshape
 from decomon.layers.utils_pooling import (
     get_lower_linear_hull_max,
     get_lower_linear_hull_min,
@@ -24,27 +16,20 @@ from decomon.layers.utils_pooling import (
 )
 from decomon.utils import ConvexDomainType, Slope
 
-try:
-    from deel.lip.activations import GroupSort2
-except ImportError:
-    logger.warning(
-        "Could not import GroupSort or GroupSort2 from deel.lip.activations. "
-        "Please install deel-lip for being compatible with 1 Lipschitz network (see https://github.com/deel-ai/deel-lip)"
-    )
-
 
 class BackwardGroupSort2(BackwardLayer):
+    """Backward  LiRPA of Flatten"""
+
     def __init__(
         self,
         layer: Layer,
-        slope: Union[str, Slope] = Slope.V_SLOPE,
-        finetune: bool = False,
         rec: int = 1,
         mode: Union[str, ForwardMode] = ForwardMode.HYBRID,
         convex_domain: Optional[Dict[str, Any]] = None,
         dc_decomp: bool = False,
         **kwargs: Any,
     ):
+
         super().__init__(
             layer=layer,
             rec=rec,
@@ -53,27 +38,21 @@ class BackwardGroupSort2(BackwardLayer):
             dc_decomp=dc_decomp,
             **kwargs,
         )
-        self.slope = Slope(slope)
-        self.finetune = finetune
-        self.finetune_param: List[tf.Variable] = []
-        if self.finetune:
-            self.frozen_alpha = False
-        self.grid_finetune: List[tf.Variable] = []
-        self.frozen_grid = False
+
+        # self.finetune = finetune
+        # self.finetune_param: List[tf.Variable] = []
+        print("C")
+
+        # if self.finetune:
+        #    self.frozen_alpha = False
+        # self.grid_finetune: List[tf.Variable] = []
+        # self.frozen_grid = False
+        # print('D')
 
         if isinstance(layer, DecomonGroupSort2):
             self.op_reshape_in: DecomonReshape = layer.op_reshape_in
         self.data_format = layer.data_format
-
-    def get_config(self) -> Dict[str, Any]:
-        config = super().get_config()
-        config.update(
-            {
-                "slope": self.slope,
-                "finetune": self.finetune,
-            }
-        )
-        return config
+        print("E")
 
     def build(self, input_shape: List[tf.TensorShape]) -> None:
         """
@@ -87,6 +66,7 @@ class BackwardGroupSort2(BackwardLayer):
             return
         input_shape = input_shape[-1]
         self.op_reshape_in, _ = get_groupsort2_reshape(input_shape, self.mode, self.data_format)
+        self.built = True
 
     def call(self, inputs: List[tf.Tensor], **kwargs: Any) -> List[tf.Tensor]:
 
@@ -109,14 +89,35 @@ class BackwardGroupSort2(BackwardLayer):
             inputs_, mode=self.mode, convex_domain=self.convex_domain, axis=-1
         )
 
-        w_u_max, b_u_max, w_l_max, b_l_max = get_diagonal_hull(w_out_u_max, b_out_u_max, w_out_l_max, b_out_l_max)
-        w_u_min, b_u_min, w_l_min, b_l_min = get_diagonal_hull(w_out_u_min, b_out_u_min, w_out_l_min, b_out_l_min)
+        # flatten
+        shape_w = np.prod(w_out_u_max.shape[1:])
+        shape_b = np.prod(b_out_u_max.shape[1:])
+        w_u_max_ = K.reshape(w_out_u_max, (-1, shape_w))
+        w_l_max_ = K.reshape(w_out_l_max, (-1, shape_w))
+        w_u_min_ = K.reshape(w_out_u_min, (-1, shape_w))
+        w_l_min_ = K.reshape(w_out_l_min, (-1, shape_w))
+        b_u_max = K.reshape(b_out_u_max, (-1, shape_b, 1))
+        b_l_max = K.reshape(b_out_l_max, (-1, shape_b, 1))
+        b_u_min = K.reshape(b_out_u_min, (-1, shape_b, 1))
+        b_l_min = K.reshape(b_out_l_min, (-1, shape_b, 1))
 
-        shape_w = w_u_max.shape[1]
-        shape_b = b_u_max.shape[1]
+        w_u_max = K.reshape(tf.linalg.diag(w_u_max_), (-1, shape_w, shape_w // 2, 2))
+        w_l_max = K.reshape(tf.linalg.diag(w_l_max_), (-1, shape_w, shape_w // 2, 2))
+        w_u_min = K.reshape(tf.linalg.diag(w_u_min_), (-1, shape_w, shape_w // 2, 2))
+        w_l_min = K.reshape(tf.linalg.diag(w_l_min_), (-1, shape_w, shape_w // 2, 2))
+
+        w_u_max = tf.reduce_sum(w_u_max, -1)
+        w_l_max = tf.reduce_sum(w_l_max, -1)
+        w_u_min = tf.reduce_sum(w_u_min, -1)
+        w_l_min = tf.reduce_sum(w_l_min, -1)
+
+        # w_u_max, b_u_max, w_l_max, b_l_max = get_diagonal_hull(w_out_u_max, b_out_u_max, w_out_l_max, b_out_l_max)
+        # w_u_min, b_u_min, w_l_min, b_l_min = get_diagonal_hull(w_out_u_min, b_out_u_min, w_out_l_min, b_out_l_min)
+
+        # shape_w = w_u_max.shape[1]
+        # shape_b = b_u_max.shape[1]
         w_u_ = K.reshape(K.concatenate([w_u_max, w_u_min], -1), (-1, shape_w, shape_w))
         w_l_ = K.reshape(K.concatenate([w_l_max, w_l_min], -1), (-1, shape_w, shape_w))
-        b_u_ = K.reshape(K.concatenate([b_u_max, b_u_min], -1), (-1, shape_b))
-        b_l_ = K.reshape(K.concatenate([b_l_max, b_l_min], -1), (-1, shape_b))
-
+        b_u_ = K.reshape(K.concatenate([b_u_max, b_u_min], -1), (-1, shape_b * 2))
+        b_l_ = K.reshape(K.concatenate([b_l_max, b_l_min], -1), (-1, shape_b * 2))
         return [w_u_, b_u_, w_l_, b_l_]
