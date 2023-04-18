@@ -793,7 +793,6 @@ def test_maximum(odd, mode, floatx, helpers):
     K.set_epsilon(eps)
 
 
-
 @pytest.mark.parametrize("axis", [(-1), (1)])
 def test_max_(axis, odd, mode, floatx, helpers):
 
