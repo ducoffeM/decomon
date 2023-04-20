@@ -342,3 +342,27 @@ def get_inner_layers(model: Model) -> int:
         else:
             count += 1
     return count
+
+def min_upper(inputs, upper, mode=ForwardMode.HYBRID):
+    if mode == ForwardMode.HYBRID:
+        index =1
+    elif mode == FORWARD_HYBRID.IBP:
+        index = 0
+    else:
+        raise KeyError('incompatible mode')
+    return best(inputs, upper, index, op=K.minimum)
+
+
+def max_lower(inputs, lower, mode=ForwardMode.HYBRID):
+    if mode == ForwardMode.HYBRID:
+        index = 4
+    elif mode == FORWARD_HYBRID.IBP:
+        index = 2
+    else:
+        raise KeyError('incompatible mode')
+    return best(inputs, upper, index, op=K.maximum)
+
+def best(inputs, tensor, index, op):
+    inputs[index]= op(inputs[index], tensor)
+    return inputs
+

@@ -290,6 +290,14 @@ def get_input_nodes(
                             set_mode_layer = Convert2BackwardMode(get_mode(ibp, affine), convex_domain)
                         output_crown_ = set_mode_layer(input_tensors + output_crown)
                         output += to_list(output_crown_)
+
+                        if ibp:
+                            layer_name = parent.outbound_layer.name
+                            if 'oracle_upper' in kwargs and layer_name in kwargs['oracle_upper']:
+                                output = min_upper(output, kwargs['oracle_upper'][layer_name], get_mode(ibp, affine))
+                            if 'oracle_lower' in kwargs and layer_name in kwargs['oracle_lower']:
+                                output = max_lower(output, kwargs['oracle_lower'][layer_name], get_mode(ibp, affine))
+
                         # crown_map[id(parent)]=output_crown_
 
                 input_map[id(node)] = output

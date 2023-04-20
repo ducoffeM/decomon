@@ -124,7 +124,7 @@ def convert(
         method = ConvertMethod(method.lower())
 
     # prepare the Keras Model: split non-linear activation functions into separate Activation layers
-    model = split_activations_in_keras_model(model)
+    #model = split_activations_in_keras_model(model)
 
     layer_map: Union[LayerMapDict, Dict[int, BackwardLayer]]
 

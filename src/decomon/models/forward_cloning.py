@@ -13,7 +13,7 @@ from tensorflow.keras.layers import Layer
 from tensorflow.keras.models import Model
 from tensorflow.python.keras.utils.generic_utils import to_list
 
-from decomon.layers.core import DecomonLayer
+from decomon.layers.core import DecomonLayer, ForwardMode
 from decomon.layers.decomon_layers import to_decomon
 from decomon.layers.utils import softmax_to_linear as softmax_2_linear
 from decomon.models.utils import (
@@ -24,7 +24,7 @@ from decomon.models.utils import (
     prepare_inputs_for_layer,
     wrap_outputs_from_layer_in_list,
 )
-from decomon.utils import Slope
+from decomon.utils import Slope, min_upper, max_lower
 
 OutputMapKey = Union[str, int]
 OutputMapVal = Union[List[tf.Tensor], "OutputMapDict"]
@@ -154,6 +154,7 @@ def convert_forward_functional_model(
     softmax_to_linear: bool = True,
     count: int = 0,
     joint: bool = True,
+    **kwargs
 ) -> Tuple[List[tf.Tensor], List[tf.Tensor], LayerMapDict, OutputMapDict]:
 
     if softmax_to_linear:
@@ -194,12 +195,21 @@ def convert_forward_functional_model(
                 layer_map[id(node)] = layer_map_
                 output_map[id(node)] = output_map_
             else:
-
+                import pdb; pdb.set_trace()
                 converted_layers = layer_fn(layer)
                 for converted_layer in converted_layers:
                     converted_layer._name = f"{converted_layer.name}_{count}"
                     count += 1
                     output = converted_layer(prepare_inputs_for_layer(output))
+                    # check if pre-computed bounds are available
+
+                    if converted_layer.mode in [ForwardMode.HYBRID, ForwardMode.IBP]:
+                        layer_name = layer.name
+                        if 'oracle_upper' in kwargs and layer_name in kwargs['oracle_upper']:
+                            output = min_upper(output, kwargs['oracle_upper'][layer_name], get_mode(ibp, affine))
+                        if 'oracle_lower' in kwargs and layer_name in kwargs['oracle_lower']:
+                            output = max_lower(output, kwargs['oracle_lower'][layer_name], get_mode(ibp, affine))
+
                     if len(converted_layers) > 1:
                         output_map[f"{id(node)}_{converted_layer.name}"] = wrap_outputs_from_layer_in_list(output)
                 layer_map[id(node)] = converted_layers
