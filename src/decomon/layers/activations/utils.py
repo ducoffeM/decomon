@@ -10,6 +10,67 @@ from decomon.types import Tensor
 
 TensorFunction = Callable[[Tensor], Tensor]
 
+def get_chord(lower:Tensor, upper:Tensor, func:Callable)->tuple[Tensor, Tensor]:
+    """Poids et biais de la corde entre (lower, func(lower)) et (upper, func(upper))
+
+    Args:
+        lower: lsower bound
+        upper: upper bound
+        func: 
+    """
+    # chord
+    w_chord = (func(upper) - func(lower)) / K.maximum(K.cast(epsilon(), dtype=upper.dtype), upper - lower)
+    b_chord = func(lower) - w_chord * lower
+
+    return (w_chord, b_chord)
+
+
+def get_convex_affine_lower_bound(lower:Tensor, upper:Tensor, func:Callable, func_prime:Callable, slope: Union[str, Slope], **kwargs)->tuple[Tensor, Tensor]:
+    """
+    forall y f(y) >= f(x) + <f'(y), y-x>
+
+    w_l_0, b_l_0 => f'(lower), f(lower) - f'(lower)*lower
+    w_l_1, b_l_1 => f'(upper), f(upper) - f'(upper)*upper
+
+    if v_slope:
+    to compute the best affine lower relaxation between (w_l_0, b_l_0), (w_l_1, b_l_1)
+    we minimize the integral in the range [lower, upper] of f(x) - w_l*x -b_l
+    this gives use the criterion: argmax_i={0,1} w_l_i/2(upper+lower) + b_l_i
+
+    Args:
+        lower (Tensor): _description_
+        upper (Tensor): _description_
+        func (Callable): _description_
+
+    Returns:
+        tuple[Tensor, Tensor]: _description_
+    """
+
+    if len(kwargs):
+        raise NotImplementedError('finetune alpha crown')
+    else:
+        w_l_0:Tensor = func_prime(lower)
+        b_l_0:Tensor = func(lower) - w_l_0*lower
+        w_l_1:Tensor = func_prime(upper)
+        b_l_1:Tensor = func(upper) - w_l_1*upper
+
+        area_0 = w_l_0*(upper+lower) + b_l_0 + b_l_0
+        area_1 = w_l_1*(upper+lower) + b_l_1 + b_l_1
+
+        w_l:Tensor = K.where(
+            area_0 <= area_1,
+            w_l_1,
+            w_l_0,
+        )
+
+        b_l:Tensor = K.where(
+            area_0 <= area_1,
+            b_l_1,
+            b_l_0,
+        )
+
+    return w_l, b_l
+
 
 def sigmoid_prime(x: Tensor) -> Tensor:
     """Derivative of sigmoid

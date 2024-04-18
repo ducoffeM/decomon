@@ -4,7 +4,7 @@ from typing import Any, Optional
 import keras
 import keras.ops as K
 from keras import Layer
-from keras.activations import linear, relu, softsign
+from keras.activations import linear, relu, softsign, exponential
 from keras.config import epsilon
 from keras.layers import Activation
 
@@ -13,6 +13,8 @@ from decomon.layers.activations.utils import (
     get_linear_hull_relu,
     get_linear_hull_s_shape,
     softsign_prime,
+    get_chord,
+    get_convex_affine_lower_bound
 )
 from decomon.layers.layer import DecomonLayer
 from decomon.perturbation_domain import PerturbationDomain
@@ -179,6 +181,17 @@ class DecomonLinear(DecomonBaseActivation):
             constant_bounds_propagated_shape=constant_oracle_bounds_shape,  # type: ignore
         )
 
+class DecomonExponential(DecomonBaseActivation):
+    diagonal = True
+
+    def get_affine_bounds(self, lower: Tensor, upper: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
+        func:Callable = keras.activations.exponential
+        func_prime:Callable = keras.activations.exponential
+
+        w_u, b_u = get_chord(lower=lower, upper=upper, func=keras.activations.exponential)
+        w_l, b_l = get_convex_affine_lower_bound(lower=lower, upper=upper, func=func, func_prime=func_prime, slope=self.slope)
+
+        return w_l, b_l, w_u, b_u
 
 class DecomonReLU(DecomonBaseActivation):
     diagonal = True
@@ -196,8 +209,9 @@ class DecomonSoftSign(DecomonBaseActivation):
         func_prime = softsign_prime
 
         # chord
-        w_chord = (func(upper) - func(lower)) / K.maximum(K.cast(epsilon(), dtype=upper.dtype), upper - lower)
-        b_chord = func(lower) - w_chord * lower
+        #w_chord = (func(upper) - func(lower)) / K.maximum(K.cast(epsilon(), dtype=upper.dtype), upper - lower)
+        #b_chord = func(lower) - w_chord * lower
+        w_chord, b_chord = get_chord(lower=lower, upper=upper, func=func)
 
         # tangent at upper
         w_tangent_upper = func_prime(upper)
@@ -237,6 +251,7 @@ MAPPING_KERAS_ACTIVATION_TO_DECOMON_ACTIVATION: dict[Callable[[Tensor], Tensor],
     linear: DecomonLinear,
     relu: DecomonReLU,
     softsign: DecomonSoftSign,
+    exponential: DecomonExponential
 }
 
 
