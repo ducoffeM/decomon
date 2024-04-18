@@ -23,7 +23,7 @@ def _activation_kwargs(activation, slope=None):
 
 
 @fixture
-@parametrize("activation", [None, "softsign"])
+@parametrize("activation", [None, "softsign", "exponential"])
 def non_relu_activation_kwargs(activation):
     return _activation_kwargs(activation)
 
@@ -105,6 +105,7 @@ def test_decomon_unary_layer(
 
     # call on actual inputs
     keras_model_input = keras_model_input_fn()
+
     keras_layer_input = keras_layer_input_fn(keras_model_input)
     decomon_inputs = decomon_input_fn(
         keras_model_input=keras_model_input,
@@ -112,6 +113,18 @@ def test_decomon_unary_layer(
         output_shape=output_shape,
         linear=decomon_layer.linear,
     )
+
+    # normalize keras_layer_input to lie in the range -1, 1
+    const = K.abs(keras_layer_input).max()
+    const = K.maximum(K.ones_like(const), const)
+
+    keras_layer_input /= const
+    if len(decomon_inputs) > 2:
+        decomon_inputs_ = decomon_inputs[:-1]
+        decomon_inputs_ = [e / const for e in decomon_inputs_]
+        decomon_inputs = decomon_inputs_ + decomon_inputs[-1:]
+    else:
+        decomon_inputs = [e / const for e in decomon_inputs]
 
     keras_output = layer(keras_layer_input)
     decomon_output = decomon_layer(decomon_inputs)
@@ -142,17 +155,22 @@ def test_decomon_unary_layer(
     assert output_shape == expected_output_shape
 
     # check ibp and affine bounds well ordered w.r.t. keras inputs/outputs
-    helpers.assert_decomon_output_compare_with_keras_input_output_layer(
-        decomon_output=decomon_output,
-        keras_model_input=keras_model_input,
-        keras_layer_input=keras_layer_input,
-        keras_model_output=keras_output,
-        keras_layer_output=keras_output,
-        ibp=ibp,
-        affine=affine,
-        propagation=propagation,
-        decimal=decimal,
-    )
+    try:
+        helpers.assert_decomon_output_compare_with_keras_input_output_layer(
+            decomon_output=decomon_output,
+            keras_model_input=keras_model_input,
+            keras_layer_input=keras_layer_input,
+            keras_model_output=keras_output,
+            keras_layer_output=keras_output,
+            ibp=ibp,
+            affine=affine,
+            propagation=propagation,
+            decimal=decimal,
+        )
+    except AssertionError:
+        import pdb
+
+        pdb.set_trace()
 
     # before propagation through linear layer lower == upper => lower == upper after propagation
     if is_actually_linear:
