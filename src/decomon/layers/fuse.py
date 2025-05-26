@@ -2,8 +2,8 @@
 
 from typing import Any, Optional
 
-from keras import ops as K  # type:ignore
-from keras.layers import Layer  # type:ignore
+from keras import ops as K
+from keras.layers import Layer
 
 from decomon.keras_utils import batch_multid_dot
 from decomon.layers.inputs_outputs_specs import InputsOutputsSpec
@@ -248,7 +248,7 @@ class Fuse(Layer):
             (
                 affine_bounds_2_shape,
                 constant_bounds_2_shape,
-            ) = self.inputs_outputs_spec_2[  # type:ignore
+            ) = self.inputs_outputs_spec_2[  # type: ignore
                 0
             ].split_output_shape(bounds_2_i_shape)
 

@@ -1,9 +1,9 @@
 from typing import Optional
 
-import keras.ops as K  # type:ignore
-from keras.layers import Dot, Layer, Reshape  # type:ignore
+import keras.ops as K
+from keras.layers import Dot, Layer, Reshape
 
-from decomon.types import BackendTensor, Tensor
+from decomon.types import Tensor
 
 BACKEND_TENSORFLOW = "tensorflow"
 BACKEND_PYTORCH = "torch"

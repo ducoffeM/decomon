@@ -298,7 +298,7 @@ class InputsOutputsSpec:
                 it will be list of shapes or list of lists of shapes.
 
         """
-        return self.split_inputs(inputs=input_shape)  # type: ignore
+        return self.split_inputs(inputs=input_shape)
 
     def flatten_inputs(
         self,
@@ -391,11 +391,11 @@ class InputsOutputsSpec:
         Returns:
 
         """
-        return self.flatten_inputs(  # type: ignore
+        return self.flatten_inputs(
             affine_bounds_to_propagate=affine_bounds_to_propagate_shape,
             constant_oracle_bounds=constant_oracle_bounds_shape,
             perturbation_domain_inputs=perturbation_domain_inputs_shape,
-        )  # type: ignore
+        )
 
     def split_outputs(self, outputs: list[Tensor]) -> tuple[Union[list[Tensor], list[list[Tensor]]], list[Tensor]]:
         """Split decomon inputs.
@@ -443,7 +443,7 @@ class InputsOutputsSpec:
         Union[list[tuple[Optional[int], ...]], list[list[tuple[Optional[int], ...]]]], list[tuple[Optional[int], ...]]
     ]:
         """Split decomon output shape."""
-        return self.split_outputs(outputs=output_shape)  # type: ignore
+        return self.split_outputs(outputs=output_shape)
 
     def flatten_outputs(
         self,
@@ -490,19 +490,22 @@ class InputsOutputsSpec:
         constant_bounds_propagated_shape: Optional[list[tuple[Optional[int], ...]]] = None,
     ) -> list[tuple[Optional[int], ...]]:
         """Flatten decomon outputs shape."""
-        return self.flatten_outputs(affine_bounds_propagated=affine_bounds_propagated_shape, constant_bounds_propagated=constant_bounds_propagated_shape)  # type: ignore
+        return self.flatten_outputs(
+            affine_bounds_propagated=affine_bounds_propagated_shape,
+            constant_bounds_propagated=constant_bounds_propagated_shape,
+        )
 
     def has_multiple_bounds_inputs(self) -> bool:
         return self.propagation == Propagation.FORWARD and self.is_merging_layer
 
     @overload
-    def extract_shapes_from_affine_bounds(  # type:ignore
+    def extract_shapes_from_affine_bounds(  # type: ignore
         self, affine_bounds: list[Tensor], i: int = -1
     ) -> list[tuple[Optional[int], ...]]:
         ...
 
     @overload
-    def extract_shapes_from_affine_bounds(
+    def extract_shapes_from_affine_bounds(  # type: ignore
         self, affine_bounds: list[list[Tensor]], i: int = -1
     ) -> list[list[tuple[Optional[int], ...]]]:
         ...
@@ -557,7 +560,7 @@ class InputsOutputsSpec:
 
     def is_wo_batch_bounds(self, affine_bounds: Union[list[Tensor], list[list[Tensor]]], i: int = -1) -> bool:
         return self.is_wo_batch_bounds_shape(
-            affine_bounds_shape=self.extract_shapes_from_affine_bounds(affine_bounds=affine_bounds, i=i), i=i
+            affine_bounds_shape=self.extract_shapes_from_affine_bounds(affine_bounds=affine_bounds, i=i), i=i  # type: ignore
         )
 
     def is_wo_batch_bounds_shape(

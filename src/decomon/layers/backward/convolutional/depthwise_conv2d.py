@@ -1,22 +1,22 @@
-import keras.ops as K
-from jacobinet.layers.convolutional.depthwise_conv2d import (
-    BackwardDepthwiseConv2D,  # type: ignore
-)
+from typing import Any
 
-from decomon.layers.backward.layer_backward import DecomonLinearLayerBackward
-from decomon.layers.convolutional.utils import DepthwiseConv_kernel_constraint
+import keras.ops as K
+from jacobinet.layers.convolutional.depthwise_conv2d import BackwardDepthwiseConv2D
+
+from decomon.layers.backward.layer_backward import DecomonBackwardLinearLayer
+from decomon.layers.convolutional.utils import DepthwiseConvKernelConstraint
 from decomon.layers.utils import pre_built
 
 
-class DecomonBackwardDepthwiseConv2D(DecomonLinearLayerBackward):
+class DecomonBackwardDepthwiseConv2D(DecomonBackwardLinearLayer):
     layer: BackwardDepthwiseConv2D
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         # create positive and negative version
 
-        self.layer_backward_pos = DepthwiseConv_kernel_constraint(layer=self.layer_backward, ops=K.maximum)
-        self.layer_backward_neg = DepthwiseConv_kernel_constraint(
+        self.layer_backward_pos = DepthwiseConvKernelConstraint(layer=self.layer_backward, ops=K.maximum)
+        self.layer_backward_neg = DepthwiseConvKernelConstraint(
             layer=self.layer_backward, ops=K.minimum, add_bias=False
         )
 

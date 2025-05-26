@@ -1,4 +1,4 @@
-from jacobinet.layers import (  # type: ignore; non linear layers
+from jacobinet.layers import (  # non linear layers
     BackwardActivation,
     BackwardAdd,
     BackwardAveragePooling1D,
@@ -40,7 +40,6 @@ from decomon.layers.backward.convolutional import (
     DecomonBackwardDepthwiseConv2D,
 )
 from decomon.layers.backward.core import DecomonBackwardActivation, DecomonBackwardDense
-from decomon.layers.backward.merging import DecomonBackwardAdd
 from decomon.layers.backward.normalization import DecomonBackwardBatchNormalization
 from decomon.layers.backward.pooling import (
     DecomonBackwardAveragePooling1D,
@@ -111,7 +110,6 @@ default_mapping_jacobinet2decomon_classes: dict[type[Layer], type[DecomonLayer]]
     # MulConstant: DecomonMulConstant,
     # Linear: DecomonLinear,
     # Dropout: DecomonDropout,
-    BackwardAdd: DecomonBackwardAdd,
     BackwardBatchNormalization: DecomonBackwardBatchNormalization,
     FuseGradients: DecomonFuseGradients,
     GradConstant: DecomonGradConstant,

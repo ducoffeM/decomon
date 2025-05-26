@@ -1,9 +1,8 @@
-import keras
-import numpy as np
-from jacobinet.models.utils import FuseGradients, GradConstant
-from keras.models import Sequential
+from typing import Any
 
-from decomon.layers import DecomonLinearLayer
+import keras
+
+from decomon.layers import DecomonLayer
 from decomon.layers.merging.base_merge import DecomonMerge
 from decomon.layers.utils import pre_built
 
@@ -13,18 +12,11 @@ class DecomonFuseGradients(DecomonMerge):
     increasing = True
 
 
-def pre_built(layer, input_shape_wo_batch):
-    if not layer.built:
-        toy_model = Sequential([layer])
-        input = np.zeros([1] + input_shape_wo_batch)
-        _ = toy_model(input)
-
-
-class DecomonGradConstant(DecomonLinearLayer):
+class DecomonGradConstant(DecomonLayer):
     linear = True
     increasing = True
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args: Any, **kwargs: Any):
         super().__init__(*args, **kwargs)
         # create positive and negative version
 

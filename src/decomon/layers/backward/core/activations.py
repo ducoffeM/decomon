@@ -1,7 +1,7 @@
-from jacobinet.layers.core.activations import BackwardActivation  # type: ignore
+from jacobinet.layers.core.activations import BackwardActivation
 
-from decomon.layers.backward.layer_backward import DecomonNonLinearBackward
+from decomon.layers.backward.layer_backward import DecomonBackwardNonLinearLayer
 
 
-class DecomonBackwardActivation(DecomonNonLinearBackward):
+class DecomonBackwardActivation(DecomonBackwardNonLinearLayer):
     layer: BackwardActivation

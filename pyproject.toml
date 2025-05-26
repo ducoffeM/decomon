@@ -12,7 +12,7 @@ authors = [
 requires-python = ">=3.9"
 dependencies =[
     "matplotlib",
-    "numpy >=1.21",
+    "numpy >=2",
     "keras>=3",
     "keras_custom@git+https://github.com/ducoffeM/keras_custom",
     "jacobinet@git+https://github.com/ducoffeM/jacobinet"
@@ -36,9 +36,6 @@ testpaths = ["tests"]
 addopts = [
     "--import-mode=importlib",
     "--ignore=tests/lirpa_comparison",
-    "--ignore=tests/old",
-    "--ignore=tests/test_deel_lip.py",
-    "--ignore=tests/test_core_backward.py",
 ]
 
 [tool.black]
@@ -79,11 +76,15 @@ module = [
     "tensorflow.*",
     "keras.*",
     "deel.lip.*",
-    "keras_core.*",
+    "jacobinet.*",
+    "keras_custom.*",
     "torch.*"
 ]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
-module = "decomon.visualization.model_visualization"
+module = [
+    "decomon.visualization.model_visualization",
+#    "decomon.layers.backward.layer_backward"
+]
 ignore_errors = true
